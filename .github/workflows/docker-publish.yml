@@ -72,17 +72,17 @@ jobs:
             Example docker-compose.yaml:
 
             ```
-            version: "3.8"
+            name: subsyncarr
 
             services:
-            subsyncarr:
-              image: mrorbitman/subsyncarr:latest
-              container_name: subsyncarr
-              volumes:
-              - ${MEDIA_PATH:-/path/to/your/media}:/scan_dir
-              restart: unless-stopped
-              environment:
-              - TZ=${TZ:-UTC}
+              subsyncarr:
+                image: mrorbitman/subsyncarr:latest
+                container_name: subsyncarr
+                volumes:
+                  - ${MEDIA_PATH:-/path/to/your/media}:/scan_dir
+                restart: unless-stopped
+                environment:
+                  - TZ=${TZ:-UTC}
             ```
 
             Docker Hub URL: https://hub.docker.com/r/mrorbitman/subsyncarr/tags
