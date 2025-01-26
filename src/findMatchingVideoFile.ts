@@ -8,11 +8,25 @@ export function findMatchingVideoFile(srtPath: string): string | null {
   const directory = dirname(srtPath);
   const srtBaseName = basename(srtPath, '.srt');
 
-  // Try to find a video file with the same name but different extension
+  // Try exact match first
   for (const ext of VIDEO_EXTENSIONS) {
     const possibleVideoPath = join(directory, `${srtBaseName}${ext}`);
     if (existsSync(possibleVideoPath)) {
       return possibleVideoPath;
+    }
+  }
+
+  // Progressive tag removal - split by dots and try removing one segment at a time
+  const segments = srtBaseName.split('.');
+  while (segments.length > 1) {
+    segments.pop(); // Remove the last segment
+    const baseNameToTry = segments.join('.');
+
+    for (const ext of VIDEO_EXTENSIONS) {
+      const possibleVideoPath = join(directory, `${baseNameToTry}${ext}`);
+      if (existsSync(possibleVideoPath)) {
+        return possibleVideoPath;
+      }
     }
   }
 

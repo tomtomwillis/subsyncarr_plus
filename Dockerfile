@@ -38,9 +38,13 @@ COPY . .
 RUN npm run build
 
 # Create startup script
+# Set default cron schedule (if not provided by environment variable)
+ENV CRON_SCHEDULE="0 0 * * *"
+
+# Create startup script with environment variable
 RUN echo '#!/bin/bash\n\
 # Add cron job\n\
-echo "0 0 * * * cd /app && /usr/local/bin/node /app/dist/index.js >> /var/log/cron.log 2>&1" > /etc/cron.d/subsyncarr\n\
+echo "${CRON_SCHEDULE} cd /app && /usr/local/bin/node /app/dist/index.js >> /var/log/cron.log 2>&1" > /etc/cron.d/subsyncarr\n\
 chmod 0644 /etc/cron.d/subsyncarr\n\
 crontab /etc/cron.d/subsyncarr\n\
 \n\

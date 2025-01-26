@@ -1,10 +1,16 @@
 import { readdir } from 'fs/promises';
 import { extname, join } from 'path';
+import { ScanConfig } from './config';
 
-export async function findAllSrtFiles(dir: string): Promise<string[]> {
+export async function findAllSrtFiles(config: ScanConfig): Promise<string[]> {
   const files: string[] = [];
 
   async function scan(directory: string): Promise<void> {
+    // Check if this directory should be excluded
+    if (config.excludePaths.some((excludePath) => directory.startsWith(excludePath))) {
+      return;
+    }
+
     const entries = await readdir(directory, { withFileTypes: true });
 
     for (const entry of entries) {
@@ -18,6 +24,10 @@ export async function findAllSrtFiles(dir: string): Promise<string[]> {
     }
   }
 
-  await scan(dir);
+  // Scan all included paths
+  for (const includePath of config.includePaths) {
+    await scan(includePath);
+  }
+
   return files;
 }

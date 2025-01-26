@@ -3,6 +3,7 @@ import { findAllSrtFiles } from './findAllSrtFiles';
 import { findMatchingVideoFile } from './findMatchingVideoFile';
 import { generateFfsubsyncSubtitles } from './generateFfsubsyncSubtitles';
 import { generateAutosubsyncSubtitles } from './generateAutosubsyncSubtitles';
+import { getScanConfig } from './config';
 
 const SCAN_DIR = '/scan_dir';
 
@@ -12,7 +13,8 @@ async function main(): Promise<void> {
 
   try {
     // Find all .srt files
-    const srtFiles = await findAllSrtFiles(scanDir);
+    const scanConfig = getScanConfig();
+    const srtFiles = await findAllSrtFiles(scanConfig);
     console.log(`${new Date().toLocaleString()} Found ${srtFiles.length} SRT files`);
 
     // Process each SRT file
