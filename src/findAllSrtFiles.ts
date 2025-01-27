@@ -18,7 +18,12 @@ export async function findAllSrtFiles(config: ScanConfig): Promise<string[]> {
 
       if (entry.isDirectory()) {
         await scan(fullPath);
-      } else if (entry.isFile() && extname(entry.name).toLowerCase() === '.srt') {
+      } else if (
+        entry.isFile() &&
+        extname(entry.name).toLowerCase() === '.srt' &&
+        !entry.name.includes('.ffsubsync.') &&
+        !entry.name.includes('.autosubsync.')
+      ) {
         files.push(fullPath);
       }
     }
