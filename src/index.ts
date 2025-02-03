@@ -19,7 +19,7 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error:', errorMessage);
+    console.error(`${new Date().toLocaleString()} Error:`, errorMessage);
   } finally {
     console.log(`${new Date().toLocaleString()} subsyncarr completed.`);
   }
