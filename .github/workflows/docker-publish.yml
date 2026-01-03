@@ -64,9 +64,9 @@ jobs:
 
             Pull the image using:
             ```bash
-            docker pull mrorbitman/subsyncarr-plus:${{ github.ref_name }}
+            docker pull tomtomw123/subsyncarr-plus:${{ github.ref_name }}
             # or
-            docker pull mrorbitman/subsyncarr-plus:latest
+            docker pull tomtomw123/subsyncarr-plus:latest
             ```
 
             Example docker-compose.yaml:
@@ -95,6 +95,6 @@ jobs:
                   - INCLUDE_ENGINES=ffsubsync,autosubsync # If not set, all engines are used by default
             ```
 
-            Docker Hub URL: https://hub.docker.com/r/mrorbitman/subsyncarr-plus/tags
+            Docker Hub URL: https://hub.docker.com/r/tomtomw123/subsyncarr-plus/tags
           draft: false
           prerelease: false
