@@ -19,25 +19,36 @@ export async function generateFfsubsyncSubtitles(srtPath: string, videoPath: str
   try {
     const command = `ffsubsync "${videoPath}" -i "${srtPath}" -o "${outputPath}"`;
     console.log(`${new Date().toLocaleString()} Processing: ${command}`);
-    await execPromise(command);
+    const { stdout, stderr } = await execPromise(command);
     return {
       success: true,
       message: `Successfully processed: ${outputPath}`,
+      stdout: stdout || undefined,
+      stderr: stderr || undefined,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const isTimeout = errorMessage.includes('SIGTERM') || errorMessage.includes('timed out');
 
+    // Extract stdout/stderr from error if available
+    const execError = error as { stdout?: string; stderr?: string };
+    const stdout = execError.stdout || '';
+    const stderr = execError.stderr || '';
+
     if (isTimeout) {
       return {
         success: false,
         message: `Timeout: ${outputPath} took longer than allowed timeout`,
+        stdout: stdout || undefined,
+        stderr: stderr || undefined,
       };
     }
 
     return {
       success: false,
       message: `Error processing ${outputPath}: ${errorMessage}`,
+      stdout: stdout || undefined,
+      stderr: stderr || undefined,
     };
   }
 }

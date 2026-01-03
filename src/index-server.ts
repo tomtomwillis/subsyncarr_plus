@@ -3,6 +3,7 @@ import { StateManager } from './stateManager';
 import { ProcessingCoordinator } from './coordinator';
 import { SubsyncarrPlusServer } from './server';
 import { schedule } from 'node-cron';
+import { getRetentionConfig } from './config';
 
 async function main() {
   const dbPath = process.env.DB_PATH || '/app/data/subsyncarr-plus.db';
@@ -36,6 +37,53 @@ async function main() {
   } else {
     console.log(`[${new Date().toISOString()}] Automatic scheduling disabled`);
   }
+
+  // Setup periodic database cleanup
+  const retentionConfig = getRetentionConfig();
+  const cleanupIntervalMs = retentionConfig.cleanupIntervalHours * 60 * 60 * 1000;
+
+  setInterval(() => {
+    console.log(`[${new Date().toISOString()}] Running database cleanup...`);
+
+    const db = stateManager.getDatabase();
+
+    // Trim old logs first
+    const trimmed = db.trimOldLogs(retentionConfig.trimLogsDays, retentionConfig.maxLogSizeBytes);
+    if (trimmed > 0) {
+      console.log(`[${new Date().toISOString()}] Trimmed logs for ${trimmed} runs`);
+    }
+
+    // Delete very old runs
+    const deleted = db.deleteOldRuns(retentionConfig.keepRunsDays);
+    if (deleted > 0) {
+      console.log(`[${new Date().toISOString()}] Deleted ${deleted} old runs`);
+      db.vacuum(); // Reclaim space
+      console.log(`[${new Date().toISOString()}] Database vacuumed`);
+    }
+
+    const stats = db.getDatabaseStats();
+    console.log(`[${new Date().toISOString()}] Database size: ${(stats.sizeBytes / 1024 / 1024).toFixed(2)} MB`);
+  }, cleanupIntervalMs);
+
+  // Run cleanup on startup after 5 seconds
+  setTimeout(() => {
+    console.log(`[${new Date().toISOString()}] Running initial database cleanup...`);
+    const db = stateManager.getDatabase();
+    db.trimOldLogs(retentionConfig.trimLogsDays, retentionConfig.maxLogSizeBytes);
+    db.deleteOldRuns(retentionConfig.keepRunsDays);
+    db.vacuum();
+  }, 5000);
+
+  // Log memory usage periodically
+  setInterval(
+    () => {
+      const usage = process.memoryUsage();
+      console.log(
+        `[${new Date().toISOString()}] Memory: RSS=${(usage.rss / 1024 / 1024).toFixed(1)}MB, Heap=${(usage.heapUsed / 1024 / 1024).toFixed(1)}MB/${(usage.heapTotal / 1024 / 1024).toFixed(1)}MB`,
+      );
+    },
+    5 * 60 * 1000,
+  ); // Every 5 minutes
 
   // Graceful shutdown
   process.on('SIGTERM', () => {

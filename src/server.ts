@@ -208,6 +208,38 @@ export class SubsyncarrPlusServer {
 
       res.json({ success: true });
     });
+
+    // Get skip status statistics
+    this.app.get('/api/skip-status', (_req, res) => {
+      console.log(`[${new Date().toISOString()}] GET /api/skip-status`);
+      const stats = this.stateManager.getFailureStats();
+      res.json(stats);
+    });
+
+    // Get skip status for specific file
+    this.app.get('/api/skip-status/:filePath(*)', (req, res) => {
+      const filePath = decodeURIComponent(req.params.filePath);
+      console.log(`[${new Date().toISOString()}] GET /api/skip-status/${filePath.split('/').pop()}`);
+
+      const skippedEngines = this.stateManager.getSkippedEngines(filePath);
+      res.json({ filePath, skippedEngines });
+    });
+
+    // Reset skip status for a file
+    this.app.post('/api/skip-status/reset', (req, res) => {
+      const { filePath, engine } = req.body;
+
+      if (!filePath) {
+        return res.status(400).json({ error: 'filePath required' });
+      }
+
+      console.log(
+        `[${new Date().toISOString()}] POST /api/skip-status/reset - ${filePath.split('/').pop()}${engine ? ` (${engine})` : ' (all engines)'}`,
+      );
+
+      this.stateManager.resetSkipStatus(filePath, engine);
+      res.json({ success: true });
+    });
   }
 
   private setupWebSocket() {

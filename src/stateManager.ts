@@ -105,7 +105,14 @@ export class StateManager extends EventEmitter {
     runId: string,
     filePath: string,
     engine: string,
-    result: { success: boolean; duration: number; message: string },
+    result: {
+      success: boolean;
+      duration: number;
+      message: string;
+      stdout?: string;
+      stderr?: string;
+      skipped?: boolean;
+    },
   ): void {
     const files = this.db.getFileResults(runId);
     const file = files.find((f) => f.file_path === filePath);
@@ -117,6 +124,15 @@ export class StateManager extends EventEmitter {
       this.db.updateFileResult(runId, filePath, {
         engines: JSON.stringify(engines),
       });
+
+      // Update failure tracking
+      if (result.skipped) {
+        // Skipped engines don't affect failure count
+      } else if (result.success) {
+        this.db.recordEngineSuccess(filePath, engine);
+      } else {
+        this.db.recordEngineFailure(filePath, engine);
+      }
 
       this.emitFileUpdate(runId, filePath);
     }
@@ -164,6 +180,28 @@ export class StateManager extends EventEmitter {
       const newLogs = currentLogs + logMessage + '\n';
       this.db.updateRun(runId, { logs: newLogs });
     }
+  }
+
+  getDatabase(): SubsyncarrPlusDatabase {
+    return this.db;
+  }
+
+  // Engine skip logic methods
+  getSkippedEngines(filePath: string): string[] {
+    return this.db.getAllSkippedEngines(filePath);
+  }
+
+  shouldSkipEngine(filePath: string, engine: string): boolean {
+    const tracking = this.db.getEngineFailureTracking(filePath, engine);
+    return tracking ? tracking.is_skipped : false;
+  }
+
+  resetSkipStatus(filePath: string, engine?: string): void {
+    this.db.resetEngineSkipStatus(filePath, engine);
+  }
+
+  getFailureStats() {
+    return this.db.getFailureTrackingStats();
   }
 
   close() {

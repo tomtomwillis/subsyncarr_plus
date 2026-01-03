@@ -5,21 +5,31 @@ import { findMatchingVideoFile } from './findMatchingVideoFile';
 import { generateFfsubsyncSubtitles } from './generateFfsubsyncSubtitles';
 import { generateAutosubsyncSubtitles } from './generateAutosubsyncSubtitles';
 import { generateAlassSubtitles } from './generateAlassSubtitles';
+import { StateManager } from './stateManager';
 
 export class ProcessingEngine extends EventEmitter {
   private cancelledFiles: Set<string> = new Set();
   private maxConcurrent: number;
   private enabledEngines: string[];
   private logBuffer: string[] = [];
+  private maxLogBufferSize: number;
+  public stateManager?: StateManager;
 
   constructor() {
     super();
     this.maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SYNC_TASKS || '1', 10);
     this.enabledEngines = process.env.INCLUDE_ENGINES?.split(',') || ['ffsubsync', 'autosubsync', 'alass'];
+    this.maxLogBufferSize = parseInt(process.env.LOG_BUFFER_SIZE || '1000', 10);
   }
 
   private log(message: string): void {
     console.log(message);
+
+    // Ring buffer - remove oldest if at capacity
+    if (this.logBuffer.length >= this.maxLogBufferSize) {
+      this.logBuffer.shift(); // Remove oldest
+    }
+
     this.logBuffer.push(message);
     this.emit('log', message);
   }
@@ -91,6 +101,22 @@ export class ProcessingEngine extends EventEmitter {
         return;
       }
 
+      // Check if engine should be skipped due to consecutive failures
+      if (this.stateManager?.shouldSkipEngine(srtPath, engine)) {
+        this.log(`[${new Date().toISOString()}] ⊘ Skipping ${engine} (3+ consecutive failures): ${fileName}`);
+        this.emit('file:engine_completed', {
+          srtPath,
+          engine,
+          result: {
+            success: false,
+            duration: 0,
+            message: 'Skipped due to 3+ consecutive failures',
+            skipped: true,
+          },
+        });
+        continue; // Skip to next engine
+      }
+
       this.log(`[${new Date().toISOString()}] Starting ${engine} for: ${fileName}`);
       this.emit('file:engine_started', { srtPath, engine });
 
@@ -119,6 +145,10 @@ export class ProcessingEngine extends EventEmitter {
         );
         if (!result.success) {
           this.log(`[${new Date().toISOString()}]   Error: ${result.message}`);
+          // Log stderr if available for debugging
+          if (result.stderr) {
+            this.log(`[${new Date().toISOString()}]   Stderr: ${result.stderr.substring(0, 500)}`);
+          }
         }
 
         if (result.success) {

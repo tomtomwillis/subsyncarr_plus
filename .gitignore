@@ -11,3 +11,4 @@ subsyncarr-plus.db
 builds
 *.tar
 *.tar.gz
+testlogs

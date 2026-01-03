@@ -61,11 +61,19 @@ RUN python3 -m pip install --user pipx \
 ENV PATH="/home/node/.local/bin:$PATH"
 
 # Install ffsubsync and autosubsync using pipx
+# Clean caches after installation to reduce memory footprint
 RUN pipx install ffsubsync \
-    && pipx install autosubsync
+    && pipx install autosubsync \
+    && python3 -m pip cache purge \
+    && find /home/node/.local/share/pipx -type f -name "*.pyc" -delete 2>/dev/null || true \
+    && find /home/node/.local/share/pipx -type d -name "__pycache__" -delete 2>/dev/null || true
 
 # Expose web UI port
 EXPOSE 3000
 
 # Use server as entrypoint (which includes cron scheduling)
-CMD ["node", "dist/index-server.js"]
+# Memory optimization flags: limit heap to 128MB and optimize for size
+CMD ["node", \
+     "--max-old-space-size=128", \
+     "--optimize-for-size", \
+     "dist/index-server.js"]

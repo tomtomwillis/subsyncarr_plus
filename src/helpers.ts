@@ -4,6 +4,9 @@ import { exec } from 'child_process';
 export interface ProcessingResult {
   success: boolean;
   message: string;
+  stdout?: string;
+  stderr?: string;
+  skipped?: boolean;
 }
 
 export const execPromise = (command: string, timeoutMs?: number): Promise<{ stdout: string; stderr: string }> => {

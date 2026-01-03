@@ -3,6 +3,13 @@ export interface ScanConfig {
   excludePaths: string[];
 }
 
+export interface RetentionConfig {
+  keepRunsDays: number; // Keep complete runs for N days
+  trimLogsDays: number; // Trim logs after N days
+  maxLogSizeBytes: number; // Max size for trimmed logs
+  cleanupIntervalHours: number; // How often to run cleanup
+}
+
 function validatePath(path: string): boolean {
   // Add any path validation logic you need
   return path.startsWith('/') && !path.includes('..');
@@ -42,5 +49,14 @@ export function getScanConfig(): ScanConfig {
   return {
     includePaths: validIncludePaths,
     excludePaths: validExcludePaths,
+  };
+}
+
+export function getRetentionConfig(): RetentionConfig {
+  return {
+    keepRunsDays: parseInt(process.env.RETENTION_KEEP_RUNS_DAYS || '30', 10),
+    trimLogsDays: parseInt(process.env.RETENTION_TRIM_LOGS_DAYS || '7', 10),
+    maxLogSizeBytes: parseInt(process.env.RETENTION_MAX_LOG_SIZE || '10000', 10),
+    cleanupIntervalHours: parseInt(process.env.RETENTION_CLEANUP_INTERVAL_HOURS || '24', 10),
   };
 }

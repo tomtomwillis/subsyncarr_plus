@@ -16,6 +16,12 @@ services:
       - /path/to/anime:/anime
       - ./data:/app/data # Persist database across restarts
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M      # Hard limit - forces OS to release cached Python libraries when idle
+        reservations:
+          memory: 128M      # Minimum guaranteed memory
     environment:
       - TZ=Etc/UTC # Replace with your own timezone
       - PUID=1000

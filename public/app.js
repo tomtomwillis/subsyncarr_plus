@@ -246,16 +246,39 @@ class SubsyncarrPlusClient {
       document.getElementById('logsModal').classList.add('hidden');
     });
 
-    document.getElementById('copyLogs').addEventListener('click', () => {
+    document.getElementById('copyLogs').addEventListener('click', async () => {
       const logsContent = document.getElementById('logsContent').textContent;
-      navigator.clipboard.writeText(logsContent).then(() => {
+      try {
+        await navigator.clipboard.writeText(logsContent);
         const btn = document.getElementById('copyLogs');
         const originalText = btn.textContent;
         btn.textContent = '✓ Copied!';
         setTimeout(() => {
           btn.textContent = originalText;
         }, 2000);
-      });
+      } catch (err) {
+        console.error('Failed to copy logs:', err);
+        // Fallback method for older browsers or permission issues
+        const textArea = document.createElement('textarea');
+        textArea.value = logsContent;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          const btn = document.getElementById('copyLogs');
+          const originalText = btn.textContent;
+          btn.textContent = '✓ Copied!';
+          setTimeout(() => {
+            btn.textContent = originalText;
+          }, 2000);
+        } catch (execErr) {
+          console.error('Fallback copy also failed:', execErr);
+          alert('Failed to copy logs to clipboard');
+        }
+        document.body.removeChild(textArea);
+      }
     });
 
     // Close logs modal when clicking outside

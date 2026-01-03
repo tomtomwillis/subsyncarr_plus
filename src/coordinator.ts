@@ -12,6 +12,10 @@ export class ProcessingCoordinator {
     private stateManager: StateManager,
   ) {
     this.enabledEngines = process.env.INCLUDE_ENGINES?.split(',') || ['ffsubsync', 'autosubsync', 'alass'];
+
+    // Inject stateManager into engine so it can check skip status
+    this.engine.stateManager = this.stateManager;
+
     this.setupEventHandlers();
   }
 
@@ -55,7 +59,14 @@ export class ProcessingCoordinator {
       }: {
         srtPath: string;
         engine: string;
-        result: { success: boolean; duration: number; message: string };
+        result: {
+          success: boolean;
+          duration: number;
+          message: string;
+          stdout?: string;
+          stderr?: string;
+          skipped?: boolean;
+        };
       }) => {
         if (currentRunId) {
           this.stateManager.updateFileEngine(currentRunId, srtPath, engine, result);
