@@ -24,7 +24,16 @@ export async function generateAutosubsyncSubtitles(srtPath: string, videoPath: s
       message: `Successfully processed: ${outputPath}`,
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTimeout = errorMessage.includes('SIGTERM') || errorMessage.includes('timed out');
+
+    if (isTimeout) {
+      return {
+        success: false,
+        message: `Timeout: ${outputPath} took longer than allowed timeout`,
+      };
+    }
+
     return {
       success: false,
       message: `Error processing ${outputPath}: ${errorMessage}`,

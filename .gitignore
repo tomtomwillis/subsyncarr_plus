@@ -5,3 +5,6 @@
 .eslintcache
 .env
 /test-srts
+CODEBASE_REFERENCE.md
+docker-compose.dev.yaml
+subsyncarr-plus.db

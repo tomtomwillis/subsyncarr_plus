@@ -21,7 +21,7 @@ async function main(): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`${new Date().toLocaleString()} Error:`, errorMessage);
   } finally {
-    console.log(`${new Date().toLocaleString()} subsyncarr completed.`);
+    console.log(`${new Date().toLocaleString()} subsyncarr-plus completed.`);
   }
 }
 

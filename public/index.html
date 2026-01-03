@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Subsyncarr+</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧬</text></svg>" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-top">
+          <div>
+            <h1>🧬 Subsyncarr+</h1>
+            <p class="subtitle">Subtitle Synchronization</p>
+          </div>
+          <div class="status-indicators">
+            <div class="status-indicator" id="statusIndicator">
+              <div class="status-light" id="statusLight"></div>
+              <div class="status-text">
+                <div class="status-label" id="statusLabel">Loading...</div>
+                <div class="status-paths" id="statusPaths"></div>
+              </div>
+            </div>
+            <div class="schedule-indicator" id="scheduleIndicator">
+              <div class="schedule-icon">⏰</div>
+              <div class="status-text">
+                <div class="status-label" id="scheduleLabel">Loading...</div>
+                <div class="status-paths" id="scheduleTime"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="controls">
+          <button id="startRun" class="btn btn-primary">▶ Start Full Run</button>
+          <button id="startCustom" class="btn btn-secondary">📁 Scan Specific Path</button>
+          <button id="stopRun" class="btn btn-danger hidden">⏹ Stop Processing</button>
+        </div>
+      </header>
+
+      <section id="currentRun" class="hidden">
+        <h2>Currently Processing</h2>
+        <div class="progress-wrapper">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <span class="progress-text" id="progressText">0 / 0</span>
+        </div>
+
+        <div id="filesInProgress"></div>
+      </section>
+
+      <section id="completedSection">
+        <div class="section-header">
+          <h2>Completed & Skipped Files</h2>
+          <button id="clearCompleted" class="btn btn-secondary btn-sm">Clear Files</button>
+        </div>
+        <div id="completedList" class="file-list"></div>
+      </section>
+
+      <section id="historySection">
+        <h2>Run History</h2>
+        <div class="engine-key">
+          <span class="key-title">Engine Results Key:</span>
+          <span class="key-item"><span class="engine-pass">1-9</span> = Passed files</span>
+          <span class="key-item"><span class="engine-fail">1-9</span> = Failed files</span>
+          <span class="key-item">Engines: <strong>F</strong>=ffsubsync, <strong>Au</strong>=autosubsync, <strong>Al</strong>=alass</span>
+        </div>
+        <table id="historyTable">
+          <thead>
+            <tr>
+              <th>Start Time</th>
+              <th>Status</th>
+              <th>Files</th>
+              <th>Completed</th>
+              <th>Skipped</th>
+              <th>Failed</th>
+              <th>F</th>
+              <th>Au</th>
+              <th>Al</th>
+              <th>Duration</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <div id="logsModal" class="modal hidden">
+      <div class="modal-content logs-modal">
+        <div class="modal-header">
+          <h3>Run Logs</h3>
+          <button id="closeLogsModal" class="btn-close">&times;</button>
+        </div>
+        <pre id="logsContent" class="logs-content"></pre>
+        <div class="modal-actions">
+          <button id="copyLogs" class="btn btn-secondary">📋 Copy to Clipboard</button>
+          <button id="closeLogsButton" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="customPathModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Scan Specific Paths</h3>
+          <button id="closeModal" class="btn-close">&times;</button>
+        </div>
+        <textarea id="customPaths" placeholder="/path/to/directory1&#10;/path/to/directory2"></textarea>
+        <div class="modal-actions">
+          <button id="cancelCustom" class="btn btn-secondary">Cancel</button>
+          <button id="submitCustom" class="btn btn-primary">Start Scan</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

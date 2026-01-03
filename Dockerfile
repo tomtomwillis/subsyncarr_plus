@@ -14,13 +14,14 @@ RUN groupmod -g ${PGID} node && \
     chown -R node:node /home/node
 RUN apt-get clean
 
-# Install system dependencies including ffmpeg, Python, and cron
+# Install system dependencies including ffmpeg, Python, cron, and build tools
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     python3 \
     python3-pip \
     python3-venv \
     cron \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 USER node
@@ -34,6 +35,9 @@ COPY --chown=node:node package*.json ./
 ENV HUSKY=0
 RUN npm install --ignore-scripts
 
+# Rebuild native modules for the container's platform
+RUN npm rebuild better-sqlite3
+
 # Copy the rest of your application
 COPY --chown=node:node . .
 RUN mkdir -p /home/node/.local/bin/
@@ -41,6 +45,9 @@ RUN cp bin/* /home/node/.local/bin/
 
 # Build TypeScript
 RUN npm run build
+
+# Create data directory for SQLite database
+RUN mkdir -p /app/data && chown node:node /app/data
 
 # Create startup script
 # Set default cron schedule (if not provided by environment variable)
@@ -57,22 +64,8 @@ ENV PATH="/home/node/.local/bin:$PATH"
 RUN pipx install ffsubsync \
     && pipx install autosubsync
 
+# Expose web UI port
+EXPOSE 3000
 
-# Create startup script with proper permissions
-RUN echo '#!/bin/bash\n\
-# Add cron job to user crontab\n\
-crontab - <<EOF\n\
-${CRON_SCHEDULE} cd /app && /usr/local/bin/node /app/dist/index.js >> /var/log/subsyncarr/cron.log 2>&1\n\
-EOF\n\
-\n\
-# Run the initial instance of the app\n\
-node dist/index.js\n\
-mkdir -p /app/logs/\n\
-touch /app/logs/app.log\n\
-tail -f /app/logs/app.log' > /app/startup.sh
-
-# Make startup script executable
-RUN chmod +x /app/startup.sh
-
-# Use startup script as entrypoint
-CMD ["/app/startup.sh"]
+# Use server as entrypoint (which includes cron scheduling)
+CMD ["node", "dist/index-server.js"]

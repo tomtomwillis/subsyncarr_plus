@@ -10,16 +10,22 @@ export const processSrtFile = async (srtFile: string) => {
 
   if (videoFile) {
     if (includeEngines.includes('ffsubsync')) {
+      const startTime = Date.now();
       const ffsubsyncResult = await generateFfsubsyncSubtitles(srtFile, videoFile);
-      console.log(`${new Date().toLocaleString()} ffsubsync result: ${ffsubsyncResult.message}`);
+      const duration = Date.now() - startTime;
+      console.log(`${new Date().toLocaleString()} ffsubsync result: ${ffsubsyncResult.message} (${duration}ms)`);
     }
     if (includeEngines.includes('autosubsync')) {
+      const startTime = Date.now();
       const autosubsyncResult = await generateAutosubsyncSubtitles(srtFile, videoFile);
-      console.log(`${new Date().toLocaleString()} autosubsync result: ${autosubsyncResult.message}`);
+      const duration = Date.now() - startTime;
+      console.log(`${new Date().toLocaleString()} autosubsync result: ${autosubsyncResult.message} (${duration}ms)`);
     }
     if (includeEngines.includes('alass')) {
+      const startTime = Date.now();
       const alassResult = await generateAlassSubtitles(srtFile, videoFile);
-      console.log(`${new Date().toLocaleString()} alass result: ${alassResult.message}`);
+      const duration = Date.now() - startTime;
+      console.log(`${new Date().toLocaleString()} alass result: ${alassResult.message} (${duration}ms)`);
     }
   } else {
     console.log(`${new Date().toLocaleString()} No matching video file found for: ${basename(srtFile)}`);

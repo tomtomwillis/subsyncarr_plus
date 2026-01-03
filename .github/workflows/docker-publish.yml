@@ -26,7 +26,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: mrorbitman/subsyncarr
+          images: mrorbitman/subsyncarr-plus
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -64,20 +64,20 @@ jobs:
 
             Pull the image using:
             ```bash
-            docker pull mrorbitman/subsyncarr:${{ github.ref_name }}
+            docker pull mrorbitman/subsyncarr-plus:${{ github.ref_name }}
             # or
-            docker pull mrorbitman/subsyncarr:latest
+            docker pull mrorbitman/subsyncarr-plus:latest
             ```
 
             Example docker-compose.yaml:
 
             ```
-            name: subsyncarr
+            name: subsyncarr-plus
 
             services:
-              subsyncarr:
-                image: mrorbitman/subsyncarr:latest
-                container_name: subsyncarr
+              subsyncarr-plus:
+                image: mrorbitman/subsyncarr-plus:latest
+                container_name: subsyncarr-plus
                 volumes:
                   # Any path configured with SCAN_PATHS env var must be mounted
                   # If no scan paths are specified, it defaults to scan `/scan_dir` like example below.
@@ -95,6 +95,6 @@ jobs:
                   - INCLUDE_ENGINES=ffsubsync,autosubsync # If not set, all engines are used by default
             ```
 
-            Docker Hub URL: https://hub.docker.com/r/mrorbitman/subsyncarr/tags
+            Docker Hub URL: https://hub.docker.com/r/mrorbitman/subsyncarr-plus/tags
           draft: false
           prerelease: false

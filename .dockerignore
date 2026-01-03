@@ -4,3 +4,6 @@ vendor
 .git
 test-srts
 *.log
+CODEBASE_REFERENCE.md
+docker-compose.dev.yaml
+subsyncarr-plus.db
