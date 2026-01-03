@@ -26,7 +26,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: mrorbitman/subsyncarr-plus
+          images: tomtomw123/subsyncarr-plus
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -76,7 +76,7 @@ jobs:
 
             services:
               subsyncarr-plus:
-                image: mrorbitman/subsyncarr-plus:latest
+                image: tomtomw123/subsyncarr-plus:latest
                 container_name: subsyncarr-plus
                 volumes:
                   # Any path configured with SCAN_PATHS env var must be mounted
