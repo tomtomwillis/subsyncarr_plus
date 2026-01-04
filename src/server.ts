@@ -113,23 +113,20 @@ export class SubsyncarrPlusServer {
     // Get logs for a specific run
     this.app.get('/api/runs/:id/logs', (req, res) => {
       console.log(`[${new Date().toISOString()}] GET /api/runs/${req.params.id}/logs`);
-      const currentRun = this.stateManager.getCurrentRun();
       const requestedId = req.params.id;
 
-      // Check current run first
-      if (currentRun && currentRun.id === requestedId) {
-        return res.json({ logs: currentRun.logs || '' });
-      }
-
-      // Check history
+      // Check if run exists (current or historical)
+      const currentRun = this.stateManager.getCurrentRun();
       const history = this.stateManager.getRunHistory(1000);
-      const run = history.find((r) => r.id === requestedId);
+      const run = currentRun?.id === requestedId ? currentRun : history.find((r) => r.id === requestedId);
 
       if (!run) {
         return res.status(404).json({ error: 'Run not found' });
       }
 
-      res.json({ logs: run.logs || '' });
+      // Read logs from file
+      const logs = this.stateManager.getRunLogs(requestedId);
+      res.json({ logs });
     });
 
     // Start a new run

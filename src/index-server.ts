@@ -46,11 +46,18 @@ async function main() {
     console.log(`[${new Date().toISOString()}] Running database cleanup...`);
 
     const db = stateManager.getDatabase();
+    const logFileManager = stateManager.getLogFileManager();
 
-    // Trim old logs first
+    // Trim old logs first (database field is now unused but kept for compatibility)
     const trimmed = db.trimOldLogs(retentionConfig.trimLogsDays, retentionConfig.maxLogSizeBytes);
     if (trimmed > 0) {
       console.log(`[${new Date().toISOString()}] Trimmed logs for ${trimmed} runs`);
+    }
+
+    // Delete old log files
+    const deletedLogFiles = logFileManager.deleteOldLogs(retentionConfig.keepRunsDays);
+    if (deletedLogFiles > 0) {
+      console.log(`[${new Date().toISOString()}] Deleted ${deletedLogFiles} old log files`);
     }
 
     // Delete very old runs
@@ -69,7 +76,9 @@ async function main() {
   setTimeout(() => {
     console.log(`[${new Date().toISOString()}] Running initial database cleanup...`);
     const db = stateManager.getDatabase();
+    const logFileManager = stateManager.getLogFileManager();
     db.trimOldLogs(retentionConfig.trimLogsDays, retentionConfig.maxLogSizeBytes);
+    logFileManager.deleteOldLogs(retentionConfig.keepRunsDays);
     db.deleteOldRuns(retentionConfig.keepRunsDays);
     db.vacuum();
   }, 5000);

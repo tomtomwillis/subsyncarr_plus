@@ -72,8 +72,8 @@ RUN pipx install ffsubsync \
 EXPOSE 3000
 
 # Use server as entrypoint (which includes cron scheduling)
-# Memory optimization flags: limit heap to 128MB and optimize for size
+# Memory optimization flags: increased heap to 512MB to prevent OOM with file-based logging
 CMD ["node", \
-     "--max-old-space-size=128", \
+     "--max-old-space-size=512", \
      "--optimize-for-size", \
      "dist/index-server.js"]

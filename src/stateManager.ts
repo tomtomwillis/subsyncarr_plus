@@ -1,14 +1,22 @@
 import EventEmitter from 'events';
 import { SubsyncarrPlusDatabase, Run, FileResult } from './database';
 import { randomUUID } from 'crypto';
+import { LogFileManager } from './logFileManager';
+import * as path from 'path';
 
 export class StateManager extends EventEmitter {
   private db: SubsyncarrPlusDatabase;
   private currentRunId: string | null = null;
+  private logFileManager: LogFileManager;
 
   constructor(dbPath: string) {
     super();
     this.db = new SubsyncarrPlusDatabase(dbPath);
+
+    // Create log file manager in same directory as database
+    const logDir = path.join(path.dirname(dbPath), 'logs');
+    this.logFileManager = new LogFileManager(logDir);
+
     this.handleIncompleteRuns();
   }
 
@@ -38,6 +46,9 @@ export class StateManager extends EventEmitter {
 
     this.currentRunId = runId;
 
+    // Start log file for this run
+    this.logFileManager.startRun(runId);
+
     const run = this.db.getRun(runId)!;
     this.emit('run:started', run);
     return runId;
@@ -48,6 +59,9 @@ export class StateManager extends EventEmitter {
       end_time: Date.now(),
       status: 'completed',
     });
+
+    // End log file for this run
+    this.logFileManager.endRun(runId);
 
     if (this.currentRunId === runId) {
       this.currentRunId = null;
@@ -62,6 +76,9 @@ export class StateManager extends EventEmitter {
       end_time: Date.now(),
       status: 'cancelled',
     });
+
+    // End log file for this run
+    this.logFileManager.endRun(runId);
 
     if (this.currentRunId === runId) {
       this.currentRunId = null;
@@ -174,16 +191,21 @@ export class StateManager extends EventEmitter {
   }
 
   appendLog(runId: string, logMessage: string): void {
-    const run = this.db.getRun(runId);
-    if (run) {
-      const currentLogs = run.logs || '';
-      const newLogs = currentLogs + logMessage + '\n';
-      this.db.updateRun(runId, { logs: newLogs });
-    }
+    // Write to log file instead of database
+    this.logFileManager.appendLog(runId, logMessage);
+  }
+
+  getRunLogs(runId: string): string {
+    // Read logs from file
+    return this.logFileManager.readLog(runId);
   }
 
   getDatabase(): SubsyncarrPlusDatabase {
     return this.db;
+  }
+
+  getLogFileManager(): LogFileManager {
+    return this.logFileManager;
   }
 
   // Engine skip logic methods
@@ -205,6 +227,7 @@ export class StateManager extends EventEmitter {
   }
 
   close() {
+    this.logFileManager.close();
     this.db.close();
   }
 }

@@ -19,7 +19,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384M      # Hard limit - forces OS to release cached Python libraries when idle
+          memory: 768M      # Hard limit - increased for file-based logging and large runs
         reservations:
           memory: 128M      # Minimum guaranteed memory
     environment:
