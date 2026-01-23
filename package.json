@@ -13,7 +13,7 @@
     "watch": "tsc -w",
     "lint": "eslint .",
     "lint:fix": "prettier --write \"**/*\" && npm run lint -- --fix",
-    "test": "echo \"todo: write tests\"",
+    "test": "jest",
     "prepare": "husky || true"
   },
   "main": "./dist/index-server.js",
