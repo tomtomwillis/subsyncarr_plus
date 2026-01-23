@@ -103,7 +103,7 @@ class SubsyncarrPlusClient {
           console.error(`Failed to fetch files for run ${run.id}:`, error);
           return { ...run, files: [] };
         }
-      })
+      }),
     );
 
     this.renderHistory(historyWithStats);
@@ -410,10 +410,10 @@ class SubsyncarrPlusClient {
     section.classList.remove('hidden');
 
     // Use engine-level progress for more granular updates
-    const percent =
-      currentRun.total_engines > 0 ? (currentRun.completed_engines / currentRun.total_engines) * 100 : 0;
+    const percent = currentRun.total_engines > 0 ? (currentRun.completed_engines / currentRun.total_engines) * 100 : 0;
     document.getElementById('progressFill').style.width = `${percent}%`;
-    document.getElementById('progressText').textContent = `${currentRun.completed} / ${currentRun.total_files} files (${Math.round(percent)}%)`;
+    document.getElementById('progressText').textContent =
+      `${currentRun.completed} / ${currentRun.total_files} files (${Math.round(percent)}%)`;
   }
 
   renderFiles() {
@@ -564,5 +564,6 @@ if (document.readyState === 'loading') {
     client = new SubsyncarrPlusClient();
   });
 } else {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   client = new SubsyncarrClient();
 }
