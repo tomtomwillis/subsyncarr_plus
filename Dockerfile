@@ -71,9 +71,9 @@ RUN pipx install ffsubsync \
 # Expose web UI port
 EXPOSE 3000
 
+# Default memory limit for Node.js
+ENV NODE_OPTIONS="--max-old-space-size=512"
+
 # Use server as entrypoint (which includes cron scheduling)
-# Memory optimization flags: increased heap to 512MB to prevent OOM with file-based logging
-CMD ["node", \
-     "--max-old-space-size=512", \
-     "--optimize-for-size", \
-     "dist/index-server.js"]
+# Memory optimization flags: uses NODE_OPTIONS to prevent OOM
+CMD ["node", "--optimize-for-size", "dist/index-server.js"]
