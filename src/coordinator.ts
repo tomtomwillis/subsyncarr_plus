@@ -2,6 +2,8 @@ import { ProcessingEngine } from './processingEngine';
 import { StateManager } from './stateManager';
 import { ScanConfig } from './config';
 import { findMatchingVideoFile } from './findMatchingVideoFile';
+import { Run } from './database';
+import { once } from 'events';
 
 export class ProcessingCoordinator {
   private processingPromise: Promise<void> | null = null;
@@ -113,7 +115,18 @@ export class ProcessingCoordinator {
     console.log(`[${new Date().toISOString()}] Starting new processing run...`);
     this.engine.reset();
 
-    this.processingPromise = this.engine.processRun(config).finally(() => {
+    const ac = new AbortController();
+    // Use events.once for cleaner listener handling with AbortSignal support
+    const runStartedPromise = once(this.stateManager, 'run:started', { signal: ac.signal }).then(
+      ([run]) => (run as Run).id,
+    );
+
+    // Suppress unhandled rejection when we abort this promise
+    runStartedPromise.catch(() => {});
+
+    const processPromise = this.engine.processRun(config);
+
+    this.processingPromise = processPromise.finally(() => {
       this.processingPromise = null;
       const run = this.stateManager.getCurrentRun();
       if (run) {
@@ -123,13 +136,30 @@ export class ProcessingCoordinator {
         this.stateManager.completeRun(run.id);
       }
     });
+    // Prevent unhandled rejection on the background promise property,
+    // as the error is handled by the main startRun awaiter.
+    this.processingPromise.catch(() => {});
 
-    // Wait a bit for run to be created
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    try {
+      // Wait for run to be created or process to fail/finish
+      const runId = await Promise.race([
+        runStartedPromise,
+        processPromise.then(() => {
+          // Process finished. If run started, we should have the ID.
+          const run = this.stateManager.getCurrentRun();
+          if (!run) {
+            throw new Error('Process completed without starting a run');
+          }
+          return run.id;
+        }),
+      ]);
 
-    const run = this.stateManager.getCurrentRun();
-    console.log(`[${new Date().toISOString()}] Run created with ID: ${run!.id}`);
-    return run!.id;
+      console.log(`[${new Date().toISOString()}] Run created with ID: ${runId}`);
+      return runId;
+    } finally {
+      // Clean up the event listener if it hasn't fired yet
+      ac.abort();
+    }
   }
 
   skipFile(filePath: string): void {
