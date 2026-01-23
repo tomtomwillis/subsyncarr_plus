@@ -88,11 +88,78 @@ describe('ProcessingCoordinator', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
+  it('should queue a stop request if stopRun is called during scan', async () => {
+    const runId = 'queued-run-id';
+    const runObject = { id: runId };
+
+    mockEngine.processRun.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      mockEngine.emit('run:files_found', ['file1.srt']);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    mockStateManager.startRun.mockImplementation(() => {
+      mockStateManager.emit('run:started', runObject);
+      mockStateManager.getCurrentRun.mockReturnValue(runObject);
+      return runId;
+    });
+
+    mockStateManager.getFileResults.mockReturnValue([{ file_path: 'file1.srt' }]);
+
+    const startPromise = coordinator.startRun();
+
+    // Call stop while it's still "scanning"
+    coordinator.stopRun();
+
+    await expect(startPromise).rejects.toThrow('Run was stopped during initialization');
+
+    expect(mockEngine.stopAllProcessing).toHaveBeenCalledWith(['file1.srt']);
+    expect(mockStateManager.cancelRun).toHaveBeenCalledWith(runId);
+
+    // Wait for the process to fully complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+
+  it('should stop an active run when stopRun is called after scan', async () => {
+    const runId = 'active-run-id';
+    const runObject = { id: runId };
+
+    mockEngine.processRun.mockImplementation(async () => {
+      mockEngine.emit('run:files_found', ['file1.srt']);
+      // Keep running to simulate active processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+
+    mockStateManager.startRun.mockImplementation(() => {
+      mockStateManager.emit('run:started', runObject);
+      mockStateManager.getCurrentRun.mockReturnValue(runObject);
+      return runId;
+    });
+
+    mockStateManager.getFileResults.mockReturnValue([{ file_path: 'file1.srt' }]);
+
+    const startPromise = coordinator.startRun();
+    const resolvedRunId = await startPromise;
+    expect(resolvedRunId).toBe(runId);
+
+    // Now stop the run while it's "processing"
+    coordinator.stopRun();
+
+    expect(mockEngine.stopAllProcessing).toHaveBeenCalledWith(['file1.srt']);
+    expect(mockStateManager.cancelRun).toHaveBeenCalledWith(runId);
+
+    // Wait for the process to fully complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+
   it('should handle process failure before run starts', async () => {
     mockEngine.processRun.mockImplementation(async () => {
       throw new Error('Scan failed');
     });
 
     await expect(coordinator.startRun()).rejects.toThrow('Scan failed');
+
+    // Wait for the process to fully complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
   });
 });

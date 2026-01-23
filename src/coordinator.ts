@@ -9,6 +9,7 @@ export class ProcessingCoordinator {
   private processingPromise: Promise<void> | null = null;
   private enabledEngines: string[];
   private currentRunId: string | null = null;
+  private stopRequested: boolean = false;
 
   constructor(
     private engine: ProcessingEngine,
@@ -114,6 +115,7 @@ export class ProcessingCoordinator {
     console.log(`[${new Date().toISOString()}] Starting new processing run...`);
     this.engine.reset();
     this.currentRunId = null;
+    this.stopRequested = false;
 
     const ac = new AbortController();
     // Use events.once for cleaner listener handling with AbortSignal support
@@ -155,6 +157,12 @@ export class ProcessingCoordinator {
         }),
       ]);
 
+      if (this.stopRequested) {
+        console.log(`[${new Date().toISOString()}] Stop was requested during scan. Cancelling run: ${runId}`);
+        this.stopRun();
+        throw new Error('Run was stopped during initialization');
+      }
+
       console.log(`[${new Date().toISOString()}] Run created with ID: ${runId}`);
       return runId;
     } finally {
@@ -173,6 +181,11 @@ export class ProcessingCoordinator {
     console.log(`[${new Date().toISOString()}] Stop run requested`);
     const run = this.stateManager.getCurrentRun();
     if (!run) {
+      if (this.isRunning()) {
+        console.log(`[${new Date().toISOString()}] No run active yet (still scanning). Queuing stop...`);
+        this.stopRequested = true;
+        return;
+      }
       throw new Error('No run is currently in progress');
     }
 
