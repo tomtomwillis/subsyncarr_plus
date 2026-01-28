@@ -107,6 +107,7 @@ docker run -d \
 | `MAX_CONCURRENT_SYNC_TASKS` | `1`                           | Number of subtitle files to process in parallel (higher = faster but more CPU)   |
 | `INCLUDE_ENGINES`           | `ffsubsync,autosubsync,alass` | Which sync engines to use (comma-separated)                                      |
 | `SYNC_ENGINE_TIMEOUT_MS`    | `1800000`                     | Timeout for each sync engine in milliseconds (30 min default)                    |
+| `NODE_OPTIONS`             | `--max-old-space-size=512`    | Node.js options, used here to set memory limit (in MB)                           |
 | `TZ`                        | _(system)_                    | Timezone for logging and cron scheduling (e.g., `America/New_York`)              |
 | `PUID`                      | `1000`                        | User ID for file permissions (run `id -u` to find yours)                         |
 | `PGID`                      | `1000`                        | Group ID for file permissions (run `id -g` to find yours)                        |
@@ -260,8 +261,9 @@ Then update your docker-compose.yaml with these values.
 If the container is being killed due to OOM (Out Of Memory):
 
 1. Reduce `MAX_CONCURRENT_SYNC_TASKS` to 1
-2. Increase memory limit in docker-compose.yaml
-3. Reduce `SYNC_ENGINE_TIMEOUT_MS` for faster timeouts
+2. Increase memory limit in `NODE_OPTIONS` (e.g., `--max-old-space-size=1024`)
+3. Increase memory limit in docker-compose.yaml
+4. Reduce `SYNC_ENGINE_TIMEOUT_MS` for faster timeouts
 4. Exclude large files or problematic directories with `EXCLUDE_PATHS`
 
 ### Files Not Being Processed

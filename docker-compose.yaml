@@ -31,6 +31,8 @@ services:
       - EXCLUDE_PATHS=/movies/temp,/tv/downloads # Exclude certain sub-directories from the scan
       - MAX_CONCURRENT_SYNC_TASKS=1 # Defaults to 1 if not set. Higher number will consume more CPU but sync your library faster
       - INCLUDE_ENGINES=ffsubsync,autosubsync # If not set, all engines are used by default
+      # Memory configuration (optional):
+      # - NODE_OPTIONS=--max-old-space-size=1024 # Increase if you experience OOM errors (default: 512)
       # Timeout configuration (optional - uncomment and adjust if needed):
       # - SYNC_ENGINE_TIMEOUT_MS=1800000  # 30 minutes (default)
       # - SYNC_ENGINE_TIMEOUT_MS=3600000  # 60 minutes for very large files
