@@ -2,10 +2,14 @@ import { ProcessingEngine } from './processingEngine';
 import { StateManager } from './stateManager';
 import { ScanConfig } from './config';
 import { findMatchingVideoFile } from './findMatchingVideoFile';
+import { Run } from './database';
+import { once } from 'events';
 
 export class ProcessingCoordinator {
   private processingPromise: Promise<void> | null = null;
   private enabledEngines: string[];
+  private currentRunId: string | null = null;
+  private stopRequested: boolean = false;
 
   constructor(
     private engine: ProcessingEngine,
@@ -20,33 +24,31 @@ export class ProcessingCoordinator {
   }
 
   private setupEventHandlers() {
-    let currentRunId: string | null = null;
-
     this.engine.on('log', (message: string) => {
-      if (currentRunId) {
-        this.stateManager.appendLog(currentRunId, message);
+      if (this.currentRunId) {
+        this.stateManager.appendLog(this.currentRunId, message);
       }
     });
 
     this.engine.on('run:files_found', (files: string[]) => {
-      currentRunId = this.stateManager.startRun(files.length, this.enabledEngines);
+      this.currentRunId = this.stateManager.startRun(files.length, this.enabledEngines);
 
       // Add all files to database as pending
       files.forEach((filePath) => {
         const videoPath = findMatchingVideoFile(filePath);
-        this.stateManager.addFile(currentRunId!, filePath, videoPath);
+        this.stateManager.addFile(this.currentRunId!, filePath, videoPath);
       });
     });
 
     this.engine.on('file:started', ({ srtPath }: { srtPath: string }) => {
-      if (currentRunId) {
-        this.stateManager.updateFileStatus(currentRunId, srtPath, 'processing', null);
+      if (this.currentRunId) {
+        this.stateManager.updateFileStatus(this.currentRunId, srtPath, 'processing', null);
       }
     });
 
     this.engine.on('file:engine_started', ({ srtPath, engine }: { srtPath: string; engine: string }) => {
-      if (currentRunId) {
-        this.stateManager.updateFileStatus(currentRunId, srtPath, 'processing', engine);
+      if (this.currentRunId) {
+        this.stateManager.updateFileStatus(this.currentRunId, srtPath, 'processing', engine);
       }
     });
 
@@ -68,38 +70,38 @@ export class ProcessingCoordinator {
           skipped?: boolean;
         };
       }) => {
-        if (currentRunId) {
-          this.stateManager.updateFileEngine(currentRunId, srtPath, engine, result);
-          this.stateManager.incrementCompletedEngines(currentRunId);
+        if (this.currentRunId) {
+          this.stateManager.updateFileEngine(this.currentRunId, srtPath, engine, result);
+          this.stateManager.incrementCompletedEngines(this.currentRunId);
         }
       },
     );
 
     this.engine.on('file:completed', ({ srtPath }: { srtPath: string }) => {
-      if (currentRunId) {
-        this.stateManager.updateFileStatus(currentRunId, srtPath, 'completed', null);
-        this.stateManager.incrementRunCounter(currentRunId, 'completed');
+      if (this.currentRunId) {
+        this.stateManager.updateFileStatus(this.currentRunId, srtPath, 'completed', null);
+        this.stateManager.incrementRunCounter(this.currentRunId, 'completed');
       }
     });
 
     this.engine.on('file:skipped', ({ srtPath }: { srtPath: string }) => {
-      if (currentRunId) {
-        this.stateManager.updateFileStatus(currentRunId, srtPath, 'skipped', null);
-        this.stateManager.incrementRunCounter(currentRunId, 'skipped');
+      if (this.currentRunId) {
+        this.stateManager.updateFileStatus(this.currentRunId, srtPath, 'skipped', null);
+        this.stateManager.incrementRunCounter(this.currentRunId, 'skipped');
       }
     });
 
     this.engine.on('file:no_video', ({ srtPath }: { srtPath: string }) => {
-      if (currentRunId) {
-        this.stateManager.updateFileStatus(currentRunId, srtPath, 'error', null);
-        this.stateManager.incrementRunCounter(currentRunId, 'failed');
+      if (this.currentRunId) {
+        this.stateManager.updateFileStatus(this.currentRunId, srtPath, 'error', null);
+        this.stateManager.incrementRunCounter(this.currentRunId, 'failed');
       }
     });
 
     this.engine.on('file:failed', ({ srtPath }: { srtPath: string }) => {
-      if (currentRunId) {
-        this.stateManager.updateFileStatus(currentRunId, srtPath, 'error', null);
-        this.stateManager.incrementRunCounter(currentRunId, 'failed');
+      if (this.currentRunId) {
+        this.stateManager.updateFileStatus(this.currentRunId, srtPath, 'error', null);
+        this.stateManager.incrementRunCounter(this.currentRunId, 'failed');
       }
     });
   }
@@ -112,8 +114,21 @@ export class ProcessingCoordinator {
 
     console.log(`[${new Date().toISOString()}] Starting new processing run...`);
     this.engine.reset();
+    this.currentRunId = null;
+    this.stopRequested = false;
 
-    this.processingPromise = this.engine.processRun(config).finally(() => {
+    const ac = new AbortController();
+    // Use events.once for cleaner listener handling with AbortSignal support
+    const runStartedPromise = once(this.stateManager, 'run:started', { signal: ac.signal }).then(
+      ([run]) => (run as Run).id,
+    );
+
+    // Suppress unhandled rejection when we abort this promise
+    runStartedPromise.catch(() => {});
+
+    const processPromise = this.engine.processRun(config);
+
+    this.processingPromise = processPromise.finally(() => {
       this.processingPromise = null;
       const run = this.stateManager.getCurrentRun();
       if (run) {
@@ -122,14 +137,38 @@ export class ProcessingCoordinator {
         );
         this.stateManager.completeRun(run.id);
       }
+      this.currentRunId = null;
     });
+    // Prevent unhandled rejection on the background promise property,
+    // as the error is handled by the main startRun awaiter.
+    this.processingPromise.catch(() => {});
 
-    // Wait a bit for run to be created
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    try {
+      // Wait for run to be created or process to fail/finish
+      const runId = await Promise.race([
+        runStartedPromise,
+        processPromise.then(() => {
+          // Process finished. If run started, we should have the ID.
+          const run = this.stateManager.getCurrentRun();
+          if (!run) {
+            throw new Error('Process completed without starting a run');
+          }
+          return run.id;
+        }),
+      ]);
 
-    const run = this.stateManager.getCurrentRun();
-    console.log(`[${new Date().toISOString()}] Run created with ID: ${run!.id}`);
-    return run!.id;
+      if (this.stopRequested) {
+        console.log(`[${new Date().toISOString()}] Stop was requested during scan. Cancelling run: ${runId}`);
+        this.stopRun();
+        throw new Error('Run was stopped during initialization');
+      }
+
+      console.log(`[${new Date().toISOString()}] Run created with ID: ${runId}`);
+      return runId;
+    } finally {
+      // Clean up the event listener if it hasn't fired yet
+      ac.abort();
+    }
   }
 
   skipFile(filePath: string): void {
@@ -142,6 +181,11 @@ export class ProcessingCoordinator {
     console.log(`[${new Date().toISOString()}] Stop run requested`);
     const run = this.stateManager.getCurrentRun();
     if (!run) {
+      if (this.isRunning()) {
+        console.log(`[${new Date().toISOString()}] No run active yet (still scanning). Queuing stop...`);
+        this.stopRequested = true;
+        return;
+      }
       throw new Error('No run is currently in progress');
     }
 

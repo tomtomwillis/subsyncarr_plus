@@ -51,7 +51,6 @@ export class ProcessingEngine extends EventEmitter {
     this.log(`[${new Date().toISOString()}] Found ${srtFiles.length} subtitle files`);
 
     this.emit('run:files_found', srtFiles);
-    this.cancelledFiles.clear();
 
     // Process in batches
     this.log(`[${new Date().toISOString()}] Processing with concurrency: ${this.maxConcurrent}`);
