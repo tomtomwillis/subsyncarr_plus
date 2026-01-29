@@ -3,6 +3,7 @@ class SubsyncarrPlusClient {
     this.ws = null;
     this.state = { currentRun: null, files: [], isRunning: false };
     this.reconnectInterval = 3000;
+    this.historyCache = {}; // Cache run data for file lookups
 
     this.initWebSocket();
     this.setupEventHandlers();
@@ -98,7 +99,10 @@ class SubsyncarrPlusClient {
         try {
           const filesResponse = await fetch(`/api/runs/${run.id}`);
           const data = await filesResponse.json();
-          return { ...run, files: data.files || [] };
+          const runWithFiles = { ...run, files: data.files || [] };
+          // Cache for file list lookups
+          this.historyCache[run.id] = runWithFiles;
+          return runWithFiles;
         } catch (error) {
           console.error(`Failed to fetch files for run ${run.id}:`, error);
           return { ...run, files: [] };
@@ -291,6 +295,22 @@ class SubsyncarrPlusClient {
     // Clear completed files
     document.getElementById('clearCompleted').addEventListener('click', () => {
       this.clearCompleted();
+    });
+
+    // File list modal handlers
+    document.getElementById('closeFileListModal').addEventListener('click', () => {
+      document.getElementById('fileListModal').classList.add('hidden');
+    });
+
+    document.getElementById('closeFileListButton').addEventListener('click', () => {
+      document.getElementById('fileListModal').classList.add('hidden');
+    });
+
+    // Close file list modal when clicking outside
+    document.getElementById('fileListModal').addEventListener('click', (e) => {
+      if (e.target.id === 'fileListModal') {
+        document.getElementById('fileListModal').classList.add('hidden');
+      }
     });
   }
 
@@ -526,14 +546,28 @@ class SubsyncarrPlusClient {
         const duration = run.end_time ? ((run.end_time - run.start_time) / 1000).toFixed(0) + 's' : 'Running...';
         const engineStats = this.calculateEngineStats(run.files || []);
 
+        // Make stats clickable if there are files in that category
+        const completedCell =
+          run.completed > 0
+            ? `<span class="stat-clickable stat-completed" onclick="client.showFileList('${run.id}', 'completed')">${run.completed}</span>`
+            : run.completed;
+        const skippedCell =
+          run.skipped > 0
+            ? `<span class="stat-clickable stat-skipped" onclick="client.showFileList('${run.id}', 'skipped')">${run.skipped}</span>`
+            : run.skipped;
+        const failedCell =
+          run.failed > 0
+            ? `<span class="stat-clickable stat-failed" onclick="client.showFileList('${run.id}', 'failed')">${run.failed}</span>`
+            : run.failed;
+
         return `
         <tr>
           <td>${new Date(run.start_time).toLocaleString()}</td>
           <td><span class="status-badge ${run.status}">${run.status}</span></td>
           <td>${run.total_files}</td>
-          <td>${run.completed}</td>
-          <td>${run.skipped}</td>
-          <td>${run.failed}</td>
+          <td>${completedCell}</td>
+          <td>${skippedCell}</td>
+          <td>${failedCell}</td>
           ${this.renderEngineCell(engineStats.ffsubsync)}
           ${this.renderEngineCell(engineStats.autosubsync)}
           ${this.renderEngineCell(engineStats.alass)}
@@ -554,6 +588,76 @@ class SubsyncarrPlusClient {
 
   basename(path) {
     return path.split('/').pop();
+  }
+
+  // Extract clean movie/show title from filename
+  cleanFileName(filePath) {
+    // Get just the filename from the path
+    let name = filePath.split('/').pop();
+
+    // Remove file extension (.srt, .eng.srt, .eng.sdh.srt, etc.)
+    name = name.replace(/\.(eng|spa|fre|ger|ita|por|jpn|kor|chi|rus|ara|hin|pol|dut|swe|nor|dan|fin|tur|heb|tha|vie|ind|msa|hun|ces|slk|ron|bul|ukr|ell|srp|hrv|slv|lit|lav|est|cat|eus|glg|sdh)?\.(srt|sub|ass|ssa|vtt)$/i, '');
+    name = name.replace(/\.(srt|sub|ass|ssa|vtt)$/i, '');
+
+    // Try to extract just the title with year
+    // Pattern: "Movie Title (Year)" followed by metadata in brackets
+    const titleMatch = name.match(/^(.+?\s*\(\d{4}\))/);
+    if (titleMatch) {
+      return titleMatch[1].trim();
+    }
+
+    // Fallback: remove common metadata patterns
+    // Remove [imdbid-...], [Bluray-...], [AAC ...], [x265], etc.
+    name = name.replace(/\s*\[.*?\]/g, '');
+    // Remove release group tags at the end like -DDR, -YTS.MX
+    name = name.replace(/\s*-[A-Za-z0-9.]+$/, '');
+    // Clean up extra whitespace
+    name = name.replace(/\s+/g, ' ').trim();
+
+    return name || filePath.split('/').pop();
+  }
+
+  // Show files in a category for a specific run
+  showFileList(runId, category) {
+    const run = this.historyCache[runId];
+    if (!run || !run.files) {
+      alert('File data not available for this run');
+      return;
+    }
+
+    let files = [];
+    let title = '';
+
+    switch (category) {
+      case 'completed':
+        files = run.files.filter((f) => f.status === 'completed');
+        title = `Completed Files (${files.length})`;
+        break;
+      case 'skipped':
+        files = run.files.filter((f) => f.status === 'skipped');
+        title = `Skipped Files (${files.length})`;
+        break;
+      case 'failed':
+        files = run.files.filter((f) => f.status === 'error');
+        title = `Failed Files (${files.length})`;
+        break;
+      default:
+        return;
+    }
+
+    document.getElementById('fileListTitle').textContent = title;
+
+    if (files.length === 0) {
+      document.getElementById('fileListContent').innerHTML =
+        '<div class="file-list-empty">No files in this category</div>';
+    } else {
+      const html = files
+        .map((file) => `<div class="file-list-item">${this.cleanFileName(file.file_path)}</div>`)
+        .join('');
+      document.getElementById('fileListContent').innerHTML = html;
+    }
+
+    document.getElementById('fileListModal').classList.remove('hidden');
   }
 }
 

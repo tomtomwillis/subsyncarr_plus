@@ -12,6 +12,7 @@ export async function generateAlassSubtitles(srtPath: string, videoPath: string)
     return {
       success: true,
       message: `Skipping ${outputPath} - already processed`,
+      skipped: true,
     };
   }
 

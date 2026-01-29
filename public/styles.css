@@ -526,3 +526,64 @@ td {
   color: #dc2626;
   font-weight: 600;
 }
+
+/* Clickable stats */
+.stat-clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.stat-clickable:hover {
+  color: var(--primary);
+}
+
+.stat-completed {
+  color: #059669;
+}
+
+.stat-skipped {
+  color: #d97706;
+}
+
+.stat-failed {
+  color: #dc2626;
+}
+
+/* File list modal */
+.modal-content.file-list-modal {
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-list-content {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 16px;
+  max-height: 60vh;
+}
+
+.file-list-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.file-list-item:last-child {
+  border-bottom: none;
+}
+
+.file-list-item:nth-child(odd) {
+  background: var(--background);
+}
+
+.file-list-empty {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}

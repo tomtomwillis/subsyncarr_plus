@@ -13,6 +13,7 @@ export async function generateFfsubsyncSubtitles(srtPath: string, videoPath: str
     return {
       success: true,
       message: `Skipping ${outputPath} - already processed`,
+      skipped: true,
     };
   }
 

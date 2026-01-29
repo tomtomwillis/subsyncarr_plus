@@ -92,6 +92,7 @@ export class ProcessingEngine extends EventEmitter {
 
     // Process with each enabled engine
     let anyEngineSucceeded = false;
+    let allEnginesSkipped = true;
     for (const engine of this.enabledEngines) {
       // Check cancellation before each engine
       if (this.cancelledFiles.has(srtPath)) {
@@ -113,7 +114,7 @@ export class ProcessingEngine extends EventEmitter {
             skipped: true,
           },
         });
-        continue; // Skip to next engine
+        continue; // Skip to next engine (allEnginesSkipped remains true)
       }
 
       this.log(`[${new Date().toISOString()}] Starting ${engine} for: ${fileName}`);
@@ -138,6 +139,21 @@ export class ProcessingEngine extends EventEmitter {
         }
 
         const duration = Date.now() - startTime;
+
+        // If this engine was skipped (already processed), log and continue
+        if (result.skipped) {
+          this.log(`[${new Date().toISOString()}] ⊘ ${engine} skipped (already processed): ${fileName}`);
+          this.emit('file:engine_completed', {
+            srtPath,
+            engine,
+            result: { ...result, duration },
+          });
+          continue; // allEnginesSkipped stays true
+        }
+
+        // An engine actually ran (not skipped), so not all are skipped
+        allEnginesSkipped = false;
+
         const status = result.success ? '✓' : '✗';
         this.log(
           `[${new Date().toISOString()}] ${status} ${engine} completed (${(duration / 1000).toFixed(1)}s): ${fileName}`,
@@ -160,6 +176,9 @@ export class ProcessingEngine extends EventEmitter {
           result: { ...result, duration },
         });
       } catch (error) {
+        // Engine attempted to run (not skipped), so not all are skipped
+        allEnginesSkipped = false;
+
         const duration = Date.now() - startTime;
         this.log(`[${new Date().toISOString()}] ✗ ${engine} failed (${(duration / 1000).toFixed(1)}s): ${fileName}`);
         this.log(`[${new Date().toISOString()}]   Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -179,6 +198,9 @@ export class ProcessingEngine extends EventEmitter {
     if (anyEngineSucceeded) {
       this.log(`[${new Date().toISOString()}] ✓ Completed successfully for: ${fileName}`);
       this.emit('file:completed', { srtPath });
+    } else if (allEnginesSkipped) {
+      this.log(`[${new Date().toISOString()}] ⊘ All engines skipped for: ${fileName}`);
+      this.emit('file:skipped', { srtPath, reason: 'all_engines_skipped' });
     } else {
       this.log(`[${new Date().toISOString()}] ✗ All engines failed for: ${fileName}`);
       this.emit('file:failed', { srtPath });

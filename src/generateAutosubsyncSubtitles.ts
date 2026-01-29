@@ -12,6 +12,7 @@ export async function generateAutosubsyncSubtitles(srtPath: string, videoPath: s
     return {
       success: true,
       message: `Skipping ${outputPath} - already processed`,
+      skipped: true,
     };
   }
 
