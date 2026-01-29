@@ -12,3 +12,8 @@ builds
 *.tar
 *.tar.gz
 testlogs
+
+# Data directory (runtime data)
+data/logs/
+*.db-shm
+*.db-wal
