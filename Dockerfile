@@ -1,79 +1,87 @@
-# Use Node.js LTS (Long Term Support) as base image
-FROM node:20-bullseye
+# Use Node 22 LTS as base image
+FROM node:22-alpine3.23 AS base
 
-# Create app user and group with configurable UID/GID
+###############
+# BUILD STAGE #
+###############
+FROM base AS builder
+
+# Build deps
+RUN apk add --no-cache \
+    python3-dev \
+    py3-pip \
+    py3-virtualenv \
+    gcc \
+    g++ \
+    make \
+    musl-dev \
+    shadow
+
+# Install ffsubsync and autosubsync into custom venvs since pipx doesn't work properly over build stages
+RUN python3 -m venv /opt/venv/ffsubsync && \
+    python3 -m venv /opt/venv/autosubsync && \
+    /opt/venv/ffsubsync/bin/pip install --no-cache-dir --no-compile ffsubsync "setuptools<70" && \
+    /opt/venv/autosubsync/bin/pip install --no-cache-dir --no-compile autosubsync "setuptools<70"
+
+# Set group and user id to 1000 in case node ever decides to change it
 ENV PUID=1000
 ENV PGID=1000
-
-RUN mkdir -p /app
-RUN chown node:node /app
-
-# Modify existing node user instead of creating new one
 RUN groupmod -g ${PGID} node && \
     usermod -u ${PUID} -g ${PGID} node && \
     chown -R node:node /home/node
-RUN apt-get clean
-
-# Install system dependencies including ffmpeg, Python, cron, and build tools
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    python3 \
-    python3-pip \
-    python3-venv \
-    cron \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
 
 USER node
-# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
+# Node deps
 COPY --chown=node:node package*.json ./
-
-# Install Node.js dependencies while skipping husky installation
 ENV HUSKY=0
 RUN npm install --ignore-scripts
 
-# Rebuild native modules for the container's platform
+# Native rebuild
 RUN npm rebuild better-sqlite3
 
-# Copy the rest of your application
+# Build app and cleanup
 COPY --chown=node:node . .
-RUN mkdir -p /home/node/.local/bin/
-RUN cp bin/* /home/node/.local/bin/
+RUN npm run build && \
+    npm prune --omit=dev --production && \
+    npm cache clean --force
 
-# Build TypeScript
-RUN npm run build
+####################
+# PRODUCTION STAGE #
+####################
+FROM base AS final
 
-# Create data directory for SQLite database
-RUN mkdir -p /app/data && chown node:node /app/data
+# Runtime deps
+RUN apk add --no-cache \
+    ffmpeg \
+    python3 \
+    shadow
 
-# Create startup script
-# Set default cron schedule (if not provided by environment variable)
+# Same user as build stage
+ENV PUID=1000
+ENV PGID=1000
+RUN groupmod -g ${PGID} node && \
+    usermod -u ${PUID} -g ${PGID} node && \
+    chown -R node:node /home/node
+
+USER node
+WORKDIR /app
+
+# Copy app, python venv installs and bin
+COPY --from=builder --chown=node:node /app /app
+COPY --from=builder --chown=node:node /opt/venv /opt/venv
+COPY --chown=node:node bin/* /home/node/.local/bin/
+
+# Create volume for persistent storage of database
+RUN mkdir -p /app/data
+VOLUME "/app/data"
+
+# Runtime Env variables
 ENV CRON_SCHEDULE="0 0 * * *"
+ENV NODE_OPTIONS="--max-old-space-size=512"
+ENV PATH="/opt/venv/ffsubsync/bin:/opt/venv/autosubsync/bin:/home/node/.local/bin/:$PATH"
 
-# Install pipx
-RUN python3 -m pip install --user pipx \
-    && python3 -m pipx ensurepath
-
-# Add pipx to PATH
-ENV PATH="/home/node/.local/bin:$PATH"
-
-# Install ffsubsync and autosubsync using pipx
-# Clean caches after installation to reduce memory footprint
-RUN pipx install ffsubsync \
-    && pipx install autosubsync \
-    && python3 -m pip cache purge \
-    && find /home/node/.local/share/pipx -type f -name "*.pyc" -delete 2>/dev/null || true \
-    && find /home/node/.local/share/pipx -type d -name "__pycache__" -delete 2>/dev/null || true
-
-# Expose web UI port
 EXPOSE 3000
 
-# Default memory limit for Node.js
-ENV NODE_OPTIONS="--max-old-space-size=512"
-
-# Use server as entrypoint (which includes cron scheduling)
-# Memory optimization flags: uses NODE_OPTIONS to prevent OOM
 CMD ["node", "--optimize-for-size", "dist/index-server.js"]
